@@ -1,0 +1,28 @@
+Source: python-coloraide
+Section: python
+Priority: optional
+Maintainer: Stefanie Jane <stef@hyperbliss.tech>
+Build-Depends: debhelper-compat (= 13),
+        dh-python,
+        python3-all,
+        python3-hatchling,
+        pybuild-plugin-pyproject
+Standards-Version: 4.6.2
+Homepage: https://github.com/facelessuser/coloraide
+Vcs-Git: https://github.com/hyperb1iss/coloraide.git
+Vcs-Browser: https://github.com/hyperb1iss/coloraide
+
+Package: python3-coloraide
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: Color library for Python
+ ColorAide is a pure Python, object-oriented color library that provides
+ a wide range of color spaces and color manipulation features.
+ .
+ Features include:
+  - Support for many color spaces (sRGB, Display P3, Lab, LCH, Oklab, etc.)
+  - Color conversion between spaces
+  - Color mixing and interpolation
+  - Color difference calculations (Delta E)
+  - CSS color parsing and formatting
+  - Color harmonies and manipulation

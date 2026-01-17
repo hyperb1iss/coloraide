@@ -1,0 +1,6 @@
+python-coloraide (7.0.0-1) unstable; urgency=medium
+
+  * Initial Debian packaging.
+  * Upstream version 7.0.0.
+
+ -- Stefanie Jane <stef@hyperbliss.tech>  Fri, 17 Jan 2026 15:30:00 -0800
