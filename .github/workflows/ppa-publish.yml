@@ -1,0 +1,118 @@
+name: Publish to PPA
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      releases:
+        description: 'Ubuntu releases (comma-separated)'
+        required: true
+        default: 'noble,oracular,plucky,questing'
+
+env:
+  DEBFULLNAME: "Stefanie Jane"
+  DEBEMAIL: "stef@hyperbliss.tech"
+  DEFAULT_RELEASES: "noble,oracular,plucky,questing"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      version: ${{ steps.version.outputs.base_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(head -1 debian/changelog | sed -E 's/.*\(([^)]+)\).*/\1/' | sed -E 's/~.*//')
+          echo "base_version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set release matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            RELEASES="${{ env.DEFAULT_RELEASES }}"
+          else
+            RELEASES="${{ inputs.releases }}"
+          fi
+          JSON=$(echo "$RELEASES" | tr ',' '\n' | jq -R . | jq -s -c .)
+          echo "matrix={\"release\":$JSON}" >> $GITHUB_OUTPUT
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y devscripts debhelper dput dh-python \
+            python3-all python3-hatchling pybuild-plugin-pyproject
+
+      - name: Prepare version
+        id: ppa
+        run: |
+          BASE_VERSION="${{ needs.prepare.outputs.version }}"
+          PPA_VERSION="${BASE_VERSION}~ppa1~${{ matrix.release }}1"
+          echo "version=$PPA_VERSION" >> $GITHUB_OUTPUT
+          echo "Building: python-coloraide $PPA_VERSION for ${{ matrix.release }}"
+
+      - name: Update changelog
+        run: |
+          dch -v "${{ steps.ppa.outputs.version }}" \
+              -D "${{ matrix.release }}" \
+              --force-distribution \
+              "PPA release for ${{ matrix.release }}"
+
+      - name: Create orig tarball
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          tar --exclude='debian' --exclude='.git' --exclude='.github' \
+              -cJf "../python-coloraide_${VERSION}.orig.tar.xz" .
+
+      - name: Build source package
+        run: debuild -S -sa -k${{ secrets.GPG_KEY_ID }}
+
+      - name: Setup dput
+        run: |
+          cat > ~/.dput.cf << EOF
+          [ppa]
+          fqdn = ppa.launchpad.net
+          method = ftp
+          incoming = ~${{ secrets.LAUNCHPAD_USER }}/uchroma/ubuntu/
+          login = anonymous
+          allow_unsigned_uploads = 0
+          EOF
+
+      - name: Upload to PPA
+        run: dput ppa ../python-coloraide_${{ steps.ppa.outputs.version }}_source.changes
+
+  summary:
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## PPA Publish Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package:** python-coloraide" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
