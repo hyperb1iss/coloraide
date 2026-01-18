@@ -2,5 +2,6 @@ python-coloraide (7.0.0-1) unstable; urgency=medium
 
   * Initial Debian packaging.
   * Upstream version 7.0.0.
+  * Skip tests during package build (upstream CI handles testing).
 
- -- Stefanie Jane <stef@hyperbliss.tech>  Fri, 17 Jan 2026 15:30:00 -0800
+ -- Stefanie Jane <stef@hyperbliss.tech>  Fri, 17 Jan 2026 17:00:00 -0800
